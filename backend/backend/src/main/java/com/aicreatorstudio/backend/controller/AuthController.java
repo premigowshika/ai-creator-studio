@@ -5,6 +5,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.aicreatorstudio.backend.dto.ApiResponse;
+import com.aicreatorstudio.backend.dto.LoginRequest;
+import com.aicreatorstudio.backend.dto.LoginResponse;
 import com.aicreatorstudio.backend.dto.RegisterRequest;
 import com.aicreatorstudio.backend.service.UserService;
 
@@ -27,5 +29,12 @@ public class AuthController {
         String message = userService.registerUser(request);
 
         return ResponseEntity.ok(new ApiResponse(true, message));
+    }
+    
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @RequestBody @Valid LoginRequest request) {
+
+        return ResponseEntity.ok(userService.login(request));
     }
 }
