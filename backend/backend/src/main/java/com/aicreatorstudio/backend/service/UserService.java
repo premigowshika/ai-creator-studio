@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import com.aicreatorstudio.backend.dto.LoginRequest;
 import com.aicreatorstudio.backend.dto.LoginResponse;
 import com.aicreatorstudio.backend.dto.RegisterRequest;
+import com.aicreatorstudio.backend.dto.UserResponse;
 import com.aicreatorstudio.backend.entity.User;
 import com.aicreatorstudio.backend.repository.UserRepository;
 import com.aicreatorstudio.backend.security.JwtService;
@@ -56,5 +57,18 @@ public class UserService {
         String token = jwtService.generateToken(user.getEmail());
 
         return new LoginResponse(token, "Login successful");
+    }
+    
+    public UserResponse getUserProfile(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return new UserResponse(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail()
+        );
     }
 }
