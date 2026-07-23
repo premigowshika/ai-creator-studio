@@ -8,6 +8,8 @@ import com.aicreatorstudio.backend.dto.LoginResponse;
 import com.aicreatorstudio.backend.dto.RegisterRequest;
 import com.aicreatorstudio.backend.dto.UserResponse;
 import com.aicreatorstudio.backend.entity.User;
+import com.aicreatorstudio.backend.exception.BadRequestException;
+import com.aicreatorstudio.backend.exception.ResourceNotFoundException;
 import com.aicreatorstudio.backend.repository.UserRepository;
 import com.aicreatorstudio.backend.security.JwtService;
 
@@ -48,10 +50,10 @@ public class UserService {
     public LoginResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+                .orElseThrow(() -> new BadRequestException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid email or password");
+        	throw new BadRequestException("Invalid email or password");
         }
 
         String token = jwtService.generateToken(user.getEmail());
@@ -62,7 +64,7 @@ public class UserService {
     public UserResponse getUserProfile(String email) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return new UserResponse(
                 user.getId(),
