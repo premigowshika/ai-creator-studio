@@ -4,6 +4,7 @@ import com.aicreatorstudio.backend.dto.ImageRequest;
 import com.aicreatorstudio.backend.entity.ImageHistory;
 import com.aicreatorstudio.backend.repository.ImageHistoryRepository;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URLEncoder;
@@ -51,6 +52,29 @@ public class AIController {
     @GetMapping("/history")
     public List<ImageHistory> getHistory() {
         return imageHistoryRepository.findAll();
+    }
+    
+    @DeleteMapping("/history/{id}")
+    public ResponseEntity<String> deleteImage(@PathVariable Long id) {
+
+        imageHistoryRepository.deleteById(id);
+
+        return ResponseEntity.ok("Image deleted successfully.");
+
+    }
+    
+    @PutMapping("/history/{id}/favorite")
+    public ResponseEntity<String> toggleFavorite(@PathVariable Long id) {
+
+        ImageHistory image = imageHistoryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Image not found"));
+
+        image.setFavorite(!image.isFavorite());
+
+        imageHistoryRepository.save(image);
+
+        return ResponseEntity.ok("Favorite updated successfully.");
+
     }
 
 }

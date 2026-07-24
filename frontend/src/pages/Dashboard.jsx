@@ -1,192 +1,218 @@
 import { useState } from "react";
 import { useEffect } from "react";
 import api from "../services/api";
+import { useNavigate } from "react-router-dom";
+import DashboardNavbar from "../components/DashboardNavbar";
+import StatsCards from "../components/StatsCards";
+import PromptForm from "../components/PromptForm";
+import GeneratedImage from "../components/GeneratedImage";
+import HistorySection from "../components/HistorySection";
+import ImageModal from "../components/ImageModal";
 
 function Dashboard() {
+  const [prompt, setPrompt] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [userEmail, setUserEmail] = useState("");
+  const [search, setSearch] = useState("");
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [sortBy, setSortBy] = useState("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const imagesPerPage = 6;
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem("darkMode") === "true";
+  });
+  const [selectedImage, setSelectedImage] = useState(null);
 
-    const [prompt, setPrompt] = useState("");
-    const [imageUrl, setImageUrl] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [history, setHistory] = useState([]);
-    
-    const generateImage = async () => {
-
+  const generateImage = async () => {
     if (!prompt.trim()) {
-        alert("Please enter a prompt.");
-        return;
+      alert("Please enter a prompt.");
+      return;
     }
 
     try {
+      setLoading(true);
 
-        setLoading(true);
+      const response = await api.post("/ai/generate-image", {
+        prompt: prompt,
+      });
 
-        const response = await api.post("/ai/generate-image", {
-    prompt: prompt
-});
+      setImageUrl(response.data.imageUrl);
 
-setImageUrl(response.data.imageUrl);
-
-// Refresh history
-loadHistory();
-
+      // Refresh history
+      loadHistory();
     } catch (error) {
+      console.error(error);
 
-        console.error(error);
-
-        alert("Image generation failed.");
-
+      alert("Image generation failed.");
     } finally {
-
-        setLoading(false);
-
+      setLoading(false);
     }
-
-};
-
-const loadHistory = async () => {
+  };
+  const downloadImage = async () => {
+    if (!imageUrl) {
+      alert("No image available to download.");
+      return;
+    }
 
     try {
+      const response = await fetch(imageUrl);
 
-        const response = await api.get("/ai/history");
+      const blob = await response.blob();
 
-        setHistory(response.data);
+      const url = window.URL.createObjectURL(blob);
 
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "ai-image.png";
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(url);
     } catch (error) {
+      console.error(error);
 
-        console.log(error);
-
+      alert("Failed to download image.");
     }
+  };
+  const deleteImage = async (id) => {
+    if (!window.confirm("Delete this image?")) return;
 
-};
+    try {
+      await api.delete(`/ai/history/${id}`);
 
-useEffect(() => {
+      loadHistory();
+    } catch (error) {
+      console.log(error);
 
+      alert("Delete failed.");
+    }
+  };
+  const loadHistory = async () => {
+    try {
+      const response = await api.get("/ai/history");
+
+      setHistory(response.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  const loadUser = () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) return;
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+
+      setUserEmail(payload.sub);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  useEffect(() => {
     loadHistory();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadUser();
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("darkMode", darkMode);
+  }, [darkMode]);
+  const logout = () => {
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+  };
+  const navigate = useNavigate();
+  const filteredHistory = history
+    .filter((item) => item.prompt.toLowerCase().includes(search.toLowerCase()))
+    .filter((item) => (showFavoritesOnly ? item.favorite : true))
+    .sort((a, b) => {
+      if (sortBy === "newest") {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
 
-}, []);
+      if (sortBy === "oldest") {
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      }
 
-    return (
+      if (sortBy === "favorites") {
+        return Number(b.favorite) - Number(a.favorite);
+      }
 
-        <div className="container mt-5">
+      return 0;
+    });
+  const toggleFavorite = async (id) => {
+    try {
+      await api.put(`/ai/history/${id}/favorite`);
 
-            <h1 className="text-center mb-4">
-                🚀 AI Creator Studio
-            </h1>
+      loadHistory();
+    } catch (error) {
+      console.log(error);
 
-            <div className="card shadow p-4">
+      alert("Failed to update favorite.");
+    }
+  };
+  const indexOfLastImage = currentPage * imagesPerPage;
+  const indexOfFirstImage = indexOfLastImage - imagesPerPage;
 
-                <h3>🖼 Text to Image</h3>
+  const currentImages = filteredHistory.slice(
+    indexOfFirstImage,
+    indexOfLastImage,
+  );
 
-                <p>
-                    Describe the image you want AI to generate.
-                </p>
+  const totalPages = Math.ceil(filteredHistory.length / imagesPerPage);
+  return (
+    <div className={`container mt-5 ${darkMode ? "bg-dark text-white" : ""}`}>
+      <DashboardNavbar
+        userEmail={userEmail}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        navigate={navigate}
+        logout={logout}
+      />
+      <StatsCards history={history} />
+      <PromptForm
+        prompt={prompt}
+        setPrompt={setPrompt}
+        generateImage={generateImage}
+        loading={loading}
+        darkMode={darkMode}
+      />
 
-                <textarea
-                    className="form-control"
-                    rows="4"
-                    placeholder="Example: A futuristic city at sunset..."
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                />
-
-                <button
-    className="btn btn-primary mt-3"
-    onClick={generateImage}
-    disabled={loading}
->
-
-    {loading ? "Generating..." : "Generate Image"}
-
-</button>
-
-            </div>
-
-            <div className="card shadow mt-4 p-4">
-
-                <h4>Generated Image</h4>
-
-                <div
-                    style={{
-                        height: "400px",
-                        border: "2px dashed #ccc",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center"
-                    }}
-                >
-
-                    {imageUrl ? (
-
-    <img
-        src={imageUrl}
-        alt="Generated"
-        className="img-fluid rounded"
-        style={{ maxHeight: "500px" }}
-    />
-
-) : (
-
-    <p>Your AI image will appear here</p>
-
-)}
-
-                </div>
-
-            </div>
-            <div className="card shadow mt-4 p-4">
-
-    <h4 className="mb-4">Previous Images</h4>
-
-    <div className="row">
-
-        {history.length === 0 ? (
-
-            <p>No images generated yet.</p>
-
-        ) : (
-
-            history.map((item) => (
-
-                <div className="col-md-4 mb-4" key={item.id}>
-
-                    <div className="card h-100 shadow-sm">
-
-                        <img
-                            src={item.imageUrl}
-                            alt={item.prompt}
-                            className="card-img-top"
-                            style={{
-                                height: "250px",
-                                objectFit: "cover"
-                            }}
-                        />
-
-                        <div className="card-body">
-
-                            <h6>{item.prompt}</h6>
-
-                            <small className="text-muted">
-                                {new Date(item.createdAt).toLocaleString()}
-                            </small>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            ))
-
-        )}
-
+      <GeneratedImage
+        imageUrl={imageUrl}
+        downloadImage={downloadImage}
+        darkMode={darkMode}
+      />
+      <HistorySection
+        search={search}
+        setSearch={setSearch}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        showFavoritesOnly={showFavoritesOnly}
+        setShowFavoritesOnly={setShowFavoritesOnly}
+        currentImages={currentImages}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalPages={totalPages}
+        darkMode={darkMode}
+        toggleFavorite={toggleFavorite}
+        deleteImage={deleteImage}
+        setSelectedImage={setSelectedImage}
+        history={history}
+      />
+      <ImageModal
+        selectedImage={selectedImage}
+        setSelectedImage={setSelectedImage}
+      />
     </div>
-
-</div>
-
-        </div>
-
-    );
-
+  );
 }
 
 export default Dashboard;

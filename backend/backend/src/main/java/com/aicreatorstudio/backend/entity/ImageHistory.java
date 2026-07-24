@@ -19,6 +19,8 @@ public class ImageHistory {
     private String userEmail;
 
     private LocalDateTime createdAt;
+    
+    private boolean favorite = false;
 
     public ImageHistory() {
     }
@@ -57,5 +59,13 @@ public class ImageHistory {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+    
+    public boolean isFavorite() {
+        return favorite;
+    }
+
+    public void setFavorite(boolean favorite) {
+        this.favorite = favorite;
     }
 }
